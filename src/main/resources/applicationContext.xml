@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <!--扫描包-->
+    <tx:component-scan base-package="com.jiahao.service"/>
+
+    <!--整合mybatis-->
+
+    <!--配置数据源-->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="com.mysql.jdbc.Driver"/>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/shiro?characterEncoding"/>
+        <property name="user" value="root"/>
+        <property name="password" value="root"/>
+    </bean>
+
+    <!--配置sessionFactory-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--配饰dao层的扫描-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.jiahao.dao"/>
+    </bean>
+
+    <!--配置事务管理器-->
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--注解 配置事务-->
+    <tx:annotation-config />
+
+    <!--设置盐算法-->
+    <bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+        <!--所用的算法-->
+        <property name="hashAlgorithmName" value="md5"/>
+        <!--迭代次数-->
+        <property name="hashIterations" value="1024"/>
+    </bean>
+
+    <!--配置realm-->
+    <bean id="realm" class="org.apache.shiro.realm.jdbc.JdbcRealm">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="permissionsQuery" value="select pname from roles_permissions rp join roles r on rp.rid = r.rid join permissions p on rp.pid = p.pid where rname = ?"/>
+        <property name="authenticationQuery" value="select password, salt from users where username = ?"/>
+        <property name="userRolesQuery" value="select rname from users_roles ur join users u on ur.uid = u.uid join roles r on ur.rid = r.rid where username = ?"/>
+        <property name="permissionsLookupEnabled" value="true"/>
+        <property name="saltStyle" value="COLUMN"/>
+        <!--配置盐-->
+        <property name="credentialsMatcher" ref="credentialsMatcher"/>
+        <!--设置缓存-->
+        <property name="cachingEnabled" value="true"/>
+    </bean>
+
+    <!--缓存管理器-->
+    <bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+        <property name="cacheManagerConfigFile" value="classpath:each_shiro.xml"/>
+    </bean>
+
+    <!--配置安全管理器-->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="realm" ref="realm"></property>
+        <!--设置缓存-->
+        <property name="cacheManager" ref="cacheManager"/>
+    </bean>
+
+    <!--配置shiro-->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+                <property name="loginUrl" value="index"/>
+                <property name="filterChainDefinitions">
+                    <value>
+                        /index.jsp = anon <!-- anon允许匿名访问，也就是允许不认证就能访问 -->
+                        /logout = logout  <!-- 安全退出后，logout拦截器会自动跳转到index.jsp -->
+                        /** = authc
+                    </value>
+                </property>
+    </bean>
+
+<!--    &lt;!&ndash;开启shiro的注解形式(2个一体)&ndash;&gt;-->
+<!--    <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator">-->
+<!--        <property name="proxyTargetClass" value="true"/>-->
+<!--    </bean>-->
+<!--    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">-->
+<!--        <property name="securityManager" ref="securityManager"></property>-->
+<!--    </bean>-->
+
+</beans>
